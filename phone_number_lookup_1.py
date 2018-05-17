@@ -8,6 +8,7 @@ from stem.control import Controller
 import time
 import random
 import string
+import pandas as pd
 
 headers={'User-Agent': 'Mozilla/5.0 (X11; OpenBSD i386) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36'}
 UAS = ("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1", 
@@ -42,41 +43,47 @@ def db_connection():
 	return conn,cur
 
 
-def search_phone(number,session):
+def search_phone(number):
 	number=number.translate(translator)
 	number="".join(number.split())
 	print(number)
 	final_result=[]
 	streetaddress,locality,region,pcode=("" for i in range(4))
-	url="https://www.yellowpages.com/search?search_terms="+number
-	r=session.get(url,verify=False,timeout=30,headers=headers)
-	soup=BeautifulSoup(r.content,"html.parser")
-	addresses=soup.findAll(class_='street-address')
-	if addresses:
-		with open('output/'+number+'.txt','w',encoding='utf-8') as f:
-		
-			for address in addresses:
-				streetaddress=address.text
-				for i in soup.findAll(class_='locality'):
-					locality=i.text.replace('\xa0', '')
-				for x in soup.findAll("span",itemprop="addressRegion"):
-					region=x.text
-				for y in soup.findAll("span",itemprop="postalCode"):
-					pcode=y.text
-				result={'number':number,'streetaddress':streetaddress,'locality':locality,'region':region,'pcode':pcode}
-				final_result.append(result)
-			print(final_result)
-			f.write(str(final_result))
-			f.close()
-			return 1,final_result
+	url="https://www.yellowpages.com/search?search_terms="+number+"&geo_location_terms=global"
+	try:
+		r=requests.get(url,verify=False,timeout=30,headers=headers)
+		print(r.status_code)
+		soup=BeautifulSoup(r.content,"html.parser")
+		addresses=soup.findAll(class_='street-address')
+
+		if addresses:
+			with open('output/'+number+'.txt','w',encoding='utf-8') as f:
+			
+				for address in addresses:
+					streetaddress=address.text
+					for i in soup.findAll(class_='locality'):
+						locality=i.text.replace('\xa0', '')
+					for x in soup.findAll("span",itemprop="addressRegion"):
+						region=x.text
+					for y in soup.findAll("span",itemprop="postalCode"):
+						pcode=y.text
+					result={'number':number,'streetaddress':streetaddress,'locality':locality,'region':region,'pcode':pcode}
+					final_result.append(result)
+				print(final_result)
+				f.write(str(final_result))
+				f.close()
+		return 1,final_result
+	except:
+		print('>>>>>>>>>>error')
+			
 
 if __name__ == '__main__':
 
 	# number='518-234-2000'
-	number=sys.argv[1]
-	renew_connection()
-	time.sleep(2)
-	print()
-	session=get_tor_session()
+	# number=sys.argv[1]
+	indputdata=pd.read_csv('contacts_1.csv').head(100)
+	indputdata=indputdata.Domain
 	# print(session.get("http://httpbin.org/ip").text)
-	search_phone(number,session)
+	for i in indputdata:
+		time.sleep(2)
+		search_phone(i)
